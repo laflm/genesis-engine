@@ -1,0 +1,388 @@
+[
+ {
+  "id": "sword",
+  "name": "Rusty Sword",
+  "slot": "weapon"
+ },
+ {
+  "id": "goldsword",
+  "name": "Banana Blade",
+  "slot": "weapon"
+ },
+ {
+  "id": "sunblade",
+  "name": "Sunblade (rare)",
+  "slot": "weapon"
+ },
+ {
+  "id": "stormrod",
+  "name": "Stormrod (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "voidlance",
+  "name": "Voidlance (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "wshield",
+  "name": "Plank Shield",
+  "slot": "shield"
+ },
+ {
+  "id": "bshield",
+  "name": "Ice Shield",
+  "slot": "shield"
+ },
+ {
+  "id": "cap",
+  "name": "Backwards Cap",
+  "slot": "head"
+ },
+ {
+  "id": "helm",
+  "name": "Knight Helm",
+  "slot": "head"
+ },
+ {
+  "id": "tunic",
+  "name": "Lame Tunic",
+  "slot": "body"
+ },
+ {
+  "id": "plate",
+  "name": "Tin Plate",
+  "slot": "body"
+ },
+ {
+  "id": "boots",
+  "name": "Speedy Kicks",
+  "slot": "foot"
+ },
+ {
+  "id": "greaves",
+  "name": "Heavy Boots",
+  "slot": "foot"
+ },
+ {
+  "id": "charm",
+  "name": "Nerd Charm",
+  "slot": "talisman"
+ },
+ {
+  "id": "clover",
+  "name": "Lucky Clover",
+  "slot": "talisman"
+ },
+ {
+  "id": "axe",
+  "name": "Ye Olde Axe",
+  "slot": "weapon"
+ },
+ {
+  "id": "katana",
+  "name": "Pixel Katana",
+  "slot": "weapon"
+ },
+ {
+  "id": "wand",
+  "name": "Wand of Mild Inconvenience",
+  "slot": "weapon"
+ },
+ {
+  "id": "vampfang",
+  "name": "Vampire Fang (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "meteorstaff",
+  "name": "Meteor Staff (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "tower",
+  "name": "Tower Shield",
+  "slot": "shield"
+ },
+ {
+  "id": "lid",
+  "name": "Pot Lid",
+  "slot": "shield"
+ },
+ {
+  "id": "crown",
+  "name": "Crown of Mild Authority",
+  "slot": "head"
+ },
+ {
+  "id": "wizhat",
+  "name": "Wizard Hat",
+  "slot": "head"
+ },
+ {
+  "id": "visor",
+  "name": "Cool Visor",
+  "slot": "head"
+ },
+ {
+  "id": "hoodie",
+  "name": "Cozy Hoodie",
+  "slot": "body"
+ },
+ {
+  "id": "cape",
+  "name": "Hero Cape",
+  "slot": "body"
+ },
+ {
+  "id": "robe",
+  "name": "Mage Robe",
+  "slot": "body"
+ },
+ {
+  "id": "rocket",
+  "name": "Rocket Sneakers",
+  "slot": "foot"
+ },
+ {
+  "id": "slippers",
+  "name": "Fuzzy Slippers",
+  "slot": "foot"
+ },
+ {
+  "id": "rabbit",
+  "name": "Rabbit Foot",
+  "slot": "talisman"
+ },
+ {
+  "id": "amulet",
+  "name": "Heart Amulet",
+  "slot": "talisman"
+ },
+ {
+  "id": "dice",
+  "name": "Lucky Die",
+  "slot": "talisman"
+ },
+ {
+  "id": "mace",
+  "name": "Spiked Mace",
+  "slot": "weapon"
+ },
+ {
+  "id": "rapier",
+  "name": "Fancy Rapier",
+  "slot": "weapon"
+ },
+ {
+  "id": "bassgun",
+  "name": "Boom Box Blaster (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "iceaxe",
+  "name": "Cryo Axe (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "overblade",
+  "name": "Mainframe Blade (boss craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "prism",
+  "name": "Prism Staff (craft)",
+  "slot": "weapon"
+ },
+ {
+  "id": "riot",
+  "name": "Riot Shield",
+  "slot": "shield"
+ },
+ {
+  "id": "mirror",
+  "name": "Mirror Shield",
+  "slot": "shield"
+ },
+ {
+  "id": "phones",
+  "name": "Studio Headphones",
+  "slot": "head"
+ },
+ {
+  "id": "icecrown",
+  "name": "Ice Crown",
+  "slot": "head"
+ },
+ {
+  "id": "neonjacket",
+  "name": "Neon Jacket",
+  "slot": "body"
+ },
+ {
+  "id": "frostplate",
+  "name": "Frost Plate",
+  "slot": "body"
+ },
+ {
+  "id": "neonkicks",
+  "name": "Neon Kicks",
+  "slot": "foot"
+ },
+ {
+  "id": "mecha",
+  "name": "Mecha Boots",
+  "slot": "foot"
+ },
+ {
+  "id": "gearheart",
+  "name": "Gear Heart",
+  "slot": "talisman"
+ },
+ {
+  "id": "quantum",
+  "name": "Quantum Die",
+  "slot": "talisman"
+ },
+ {
+  "id": "cryocore",
+  "name": "Cryo Core",
+  "slot": "talisman"
+ },
+ {
+  "id": "potion_luck",
+  "name": "Fortune Potion"
+ },
+ {
+  "id": "potion_mega",
+  "name": "Full Restore"
+ },
+ {
+  "id": "elixir",
+  "name": "Rainbow Elixir"
+ },
+ {
+  "id": "core4",
+  "name": "Glitch Core"
+ },
+ {
+  "id": "core5",
+  "name": "Frost Core"
+ },
+ {
+  "id": "core6",
+  "name": "Mainframe Core"
+ },
+ {
+  "id": "megahelm",
+  "name": "M.E.G.A. Helm",
+  "slot": "head"
+ },
+ {
+  "id": "megaplate",
+  "name": "M.E.G.A. Plate",
+  "slot": "body"
+ },
+ {
+  "id": "sewerhat",
+  "name": "Sewer Goggle Hat",
+  "slot": "head"
+ },
+ {
+  "id": "sewercoat",
+  "name": "Slime Coat",
+  "slot": "body"
+ },
+ {
+  "id": "ceohat",
+  "name": "Top Hat of Doom",
+  "slot": "head"
+ },
+ {
+  "id": "ceosuit",
+  "name": "Hostile Suit",
+  "slot": "body"
+ },
+ {
+  "id": "djcans",
+  "name": "Mega Bass Cans",
+  "slot": "head"
+ },
+ {
+  "id": "djjacket",
+  "name": "Glitch Jacket",
+  "slot": "body"
+ },
+ {
+  "id": "cryohood",
+  "name": "Cryo Hood",
+  "slot": "head"
+ },
+ {
+  "id": "cryoparka",
+  "name": "Cryo Parka",
+  "slot": "body"
+ },
+ {
+  "id": "motherdome",
+  "name": "Core Dome",
+  "slot": "head"
+ },
+ {
+  "id": "motherplate",
+  "name": "Mainframe Plating",
+  "slot": "body"
+ },
+ {
+  "id": "potion_haste",
+  "name": "Haste Potion"
+ },
+ {
+  "id": "potion_big",
+  "name": "Mega Healing"
+ },
+ {
+  "id": "potion_def",
+  "name": "Iron Potion"
+ },
+ {
+  "id": "potion_int",
+  "name": "Brain Juice"
+ },
+ {
+  "id": "potion_hp",
+  "name": "Healing Potion"
+ },
+ {
+  "id": "potion_str",
+  "name": "Strength Potion"
+ },
+ {
+  "id": "potion_spd",
+  "name": "Speed Potion"
+ },
+ {
+  "id": "core",
+  "name": "M.E.G.A. Core"
+ },
+ {
+  "id": "core2",
+  "name": "Sewer Core"
+ },
+ {
+  "id": "core3",
+  "name": "Tower Core"
+ },
+ {
+  "id": "scrap",
+  "name": "Scrap Metal"
+ },
+ {
+  "id": "cog",
+  "name": "Cog"
+ },
+ {
+  "id": "chip",
+  "name": "Shiny Chip"
+ }
+]
