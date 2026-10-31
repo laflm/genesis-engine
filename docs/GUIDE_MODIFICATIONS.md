@@ -223,6 +223,8 @@ Raccourcis clavier : `CONFIG.shortcuts` + `ui/shortcuts.ts`. Modes de l'éditeur
 
 ## 14. Ajouter un test
 
+> **Règle CI** : les tests de `npm test` ne doivent dépendre que de Node. GitHub Actions n'a pas Pillow ni aucun paquet Python ; pour comparer des octets, écris un décodeur/vérificateur en TypeScript (voir `tests/png.test.ts`) et, si un outil externe est un bonus, marque le test `skip` quand il est absent.
+
 - Logique pure (adaptateur, import, validation, export) : `tests/*.test.ts` (`node:test`, lancés par `npm test`).
 - Scénario complet (traits, import de PNG, export, chargement dans le jeu) : `tests/bot/e2e.py` (Playwright), via `npm run build:local && npm run bot`.
   Ajoute un `check('nom', condition)` à l'endroit voulu du scénario.
