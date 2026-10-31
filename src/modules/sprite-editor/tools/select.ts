@@ -19,7 +19,7 @@ function shapePath(a: { x: number; y: number }, b: { x: number; y: number }): Pa
 const size = (): { w: number; h: number } => ({ w: session.asset?.w ?? 0, h: session.asset?.h ?? 0 });
 
 registerSpriteTool({
-  id: 'select', label: 'Sélection', icon: '⬚', shortcut: 'S',
+  id: 'select', label: 'Sélection', icon: '⬚', shortcut: 'S', hideBrushSettings: true,
   down(p) { start = p; pts = [{ x: p.x, y: p.y }]; },
   move(p) {
     if (!start) return;
@@ -43,7 +43,6 @@ registerSpriteTool({
     host.append(sel, b('Tout', () => { const { w, h: hh } = size(); selectAll(w, hh); }, 'Tout sélectionner (Ctrl+A)'),
       b('Inverser', () => { const { w, h: hh } = size(); invertSelection(w, hh); }, 'Inverser (Ctrl+I)'),
       b('Aucune', () => clearSelection(), 'Désélectionner (Ctrl+D)'),
-      b('↻ Transformer', () => setActiveTool('transform'), 'Déplacer / pivoter / redimensionner la sélection'),
-      h('small', { class: 'hint' }, 'Un tap désélectionne. Pinceau, gomme, remplissage et fondu ne touchent que l\'intérieur.'));
+      b('↻ Transformer', () => setActiveTool('transform'), 'Déplacer / pivoter / redimensionner la sélection'));
   },
 });

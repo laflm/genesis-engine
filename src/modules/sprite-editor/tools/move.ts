@@ -17,7 +17,7 @@ registerSpriteTool({
   id: 'move', label: 'Déplacer', icon: '✥', shortcut: 'V',
   down(p) {
     const f = session.frame; if (!f) return;
-    const ls = session.moveAllLayers ? f.layers : session.layer ? [session.layer] : [];
+    const ls = session.moveAllLayers ? f.layers : session.selectedLayers;
     targets = ls.filter((l) => !l.locked).map((l) => ({ l, snap: cloneCanvas(l.canvas) }));
     start = p; offset = { x: 0, y: 0 };
   },

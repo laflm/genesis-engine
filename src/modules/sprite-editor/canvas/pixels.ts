@@ -1,3 +1,4 @@
+import { canEncodePng, encodePng, hashPixels } from '../../../core/png';
 // Outils canvas bas niveau (navigateur uniquement).
 export function makeCanvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -14,11 +15,22 @@ export function isEmptyCanvas(c: HTMLCanvasElement): boolean {
   for (let i = 3; i < d.length; i += 4) if (d[i]! > 0) return false;
   return true;
 }
-export function canvasToPng(c: HTMLCanvasElement): Promise<Uint8Array> {
+function toBlobPng(c: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((res, rej) => c.toBlob((b) => {
     if (!b) return rej(new Error('Encodage PNG impossible (mémoire canvas insuffisante ?)'));
     b.arrayBuffer().then((ab) => res(new Uint8Array(ab)), rej);
   }, 'image/png'));
+}
+/** Encode un canvas en PNG. Encodeur maison (src/core/png.ts) ; repli sur toBlob si CompressionStream est absent. */
+const pngCache = new WeakMap<HTMLCanvasElement, { hash: number; w: number; h: number; png: Uint8Array }>();
+export async function canvasToPng(c: HTMLCanvasElement): Promise<Uint8Array> {
+  if (!canEncodePng()) return toBlobPng(c);
+  const px = ctxOf(c).getImageData(0, 0, c.width, c.height).data, hash = hashPixels(px), hit = pngCache.get(c);
+  // Cache PAR CONTENU : un calque inchangé depuis la dernière sauvegarde n'est pas ré-encodé ; un calque modifié l'est toujours.
+  if (hit && hit.hash === hash && hit.w === c.width && hit.h === c.height) return hit.png;
+  const png = await encodePng(px, c.width, c.height);
+  pngCache.set(c, { hash, w: c.width, h: c.height, png });
+  return png;
 }
 export async function decodeImage(bytes: Uint8Array): Promise<HTMLCanvasElement> {
   const bmp = await createImageBitmap(new Blob([bytes as BlobPart], { type: 'image/png' }));

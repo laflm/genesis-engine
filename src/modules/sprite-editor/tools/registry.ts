@@ -14,6 +14,8 @@ export interface SpriteTool {
   deactivate?(): void;
   /** Remplit la barre de réglages sous le canvas quand l'outil est actif. */
   options?(host: HTMLElement): void;
+  /** Masque couleur/pinceau/taille/opacité dans la barre quand ils n'ont pas de sens pour cet outil (plus de place pour ses options). */
+  hideBrushSettings?: boolean;
 }
 const tools = new Map<string, SpriteTool>();
 export const registerSpriteTool = (t: SpriteTool): void => { tools.set(t.id, t); };

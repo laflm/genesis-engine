@@ -1,5 +1,5 @@
 import { CONFIG } from '../../../config';
-import { bus } from '../../../core/events';
+import { bus, collectDisposers, listen, registerDisposer } from '../../../core/events';
 import { CanvasView } from '../canvas/view';
 import { attachInput } from '../canvas/input';
 import { openExportDialog, openProjectDialog } from '../export/ui';
@@ -15,8 +15,16 @@ import { listBrushes } from '../brushes';
 import { h, modal, toast } from './dom';
 import { bindShortcuts } from './shortcuts';
 
-/** Construit toute l'interface du Sprite Editor dans `host`. */
+let disposeShell: (() => void) | null = null;
+/**
+ * Construit toute l'interface du Sprite Editor dans `host`. Reconstruire (ex. ouverture d'un projet) défait d'abord
+ * l'ancienne interface : abonnements, écouteurs clavier et boucles d'animation ne s'accumulent pas.
+ */
 export function buildShell(host: HTMLElement): void {
+  disposeShell?.();
+  disposeShell = collectDisposers(() => buildShellInner(host));
+}
+function buildShellInner(host: HTMLElement): void {
   host.replaceChildren();
   const adapter = session.adapter;
   const top = h('div', { class: 'topbar' }), left = h('div', { class: 'toolbar' }), center = h('div', { class: 'center' });
@@ -45,7 +53,8 @@ export function buildShell(host: HTMLElement): void {
   // ---- Barre d'outils ----
   const renderTools = (): void => {
     left.replaceChildren(...listSpriteTools().map((t) => h('button', { class: `btn tool${t.id === session.toolId ? ' active' : ''}`, title: `${t.label} (${t.shortcut ?? ''})`, 'aria-label': t.label, onclick: () => setActiveTool(t.id) }, t.icon)),
-      h('button', { class: 'btn tool', title: 'Ajuster la vue', 'aria-label': 'Ajuster la vue', onclick: () => view.fit() }, '⛶'),
+      h('button', { class: 'btn tool', title: 'Ajuster la vue (zoom + rotation)', 'aria-label': 'Ajuster la vue', onclick: () => view.fit() }, '⛶'),
+      h('button', { class: 'btn tool', title: 'Remettre la vue droite (rotation à 0°). Deux doigts = pivoter ; Alt + molette sur ordinateur', 'aria-label': 'Rotation de la vue à zéro', onclick: () => view.resetRotation() }, '🧭'),
       h('button', { class: `btn tool${session.showGuides ? ' active' : ''}`, title: 'Guides (grille, ancre, zone sûre)', 'aria-label': 'Guides', onclick: () => { session.showGuides = !session.showGuides; bus.emit('tool:changed'); bus.emit('view:changed'); } }, '▦'),
       h('button', { class: `btn tool${session.moveAllLayers ? ' active' : ''}`, title: 'Déplacer : tous les calques', 'aria-label': 'Déplacer tous les calques', onclick: () => { session.moveAllLayers = !session.moveAllLayers; bus.emit('tool:changed'); } }, '⧉'));
   };
@@ -61,7 +70,7 @@ export function buildShell(host: HTMLElement): void {
   const swatch = h('span', { class: 'cur-color' });
   bus.on('color:changed', () => { swatch.style.background = session.color; }); swatch.style.background = session.color;
   const optionsHost = h('div', { class: 'tool-options' });
-  const renderOptions = (): void => { optionsHost.replaceChildren(); getSpriteTool(session.toolId)?.options?.(optionsHost); };
+  const renderOptions = (): void => { const t = getSpriteTool(session.toolId); optionsHost.replaceChildren(); settings.classList.toggle('opts-only', !!t?.hideBrushSettings); t?.options?.(optionsHost); };
   const settings = h('div', { class: 'settings' }, swatch, brushSel, h('label', {}, 'Taille ', sizeIn, sizeLbl), h('label', {}, 'Opacité ', opIn), optionsHost);
 
   // ---- Panneaux ----
@@ -90,10 +99,10 @@ export function buildShell(host: HTMLElement): void {
   };
   bus.on('history:changed', sync); bus.on('asset:selected', () => { sync(); view.resize(); view.fit(); }); bus.on('project:changed', sync);
   bus.on('tool:changed', () => { renderTools(); renderOptions(); }); bus.on('toast', toast);
-  new ResizeObserver(() => view.resize()).observe(stage);
+  const stageRo = new ResizeObserver(() => view.resize()); stageRo.observe(stage); registerDisposer(() => stageRo.disconnect());
   // Glisser-déposer de fichiers sur toute l'application.
-  host.addEventListener('dragover', (e) => e.preventDefault());
-  host.addEventListener('drop', (e) => { e.preventDefault(); const fs = [...(e.dataTransfer?.files ?? [])]; if (fs.length) void importFiles(fs); });
+  listen(host, 'dragover', (e) => e.preventDefault());
+  listen(host, 'drop', (e) => { e.preventDefault(); const fs = [...((e as DragEvent).dataTransfer?.files ?? [])]; if (fs.length) void importFiles(fs); });
   renderOptions(); sync(); view.resize();
   if (!session.asset) { const first = [...session.project.assets.keys()][0]; if (first) session.select(first); else openAssetPicker(); }
 

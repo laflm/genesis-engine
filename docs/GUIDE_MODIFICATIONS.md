@@ -234,3 +234,39 @@ Raccourcis clavier : `CONFIG.shortcuts` + `ui/shortcuts.ts`. Modes de l'éditeur
 - **Ne mets pas d'extension inconnue dans un attribut `accept`** : l'iPad grise alors les fichiers. Tous les sélecteurs passent par
   `pickFiles()` (`ui/dom.ts`), qui attache l'input à la page (nécessaire sur Safari) ; ajoute `accept` seulement pour des types standard (`.png`, `.zip`).
 - Enregistrement d'un fichier (ZIP d'export, projet) : `saveFile()` dans `export/targets.ts` (feuille de partage sur iPad, téléchargement ailleurs).
+
+## 16. Calques : insertion, sélection multiple, copier/coller
+
+Fichiers : logique d'ordre pure `layers/order.ts` (testée), actions annulables `layers/actions.ts`, interface `layers/panel.ts`.
+- **Nouveau calque** : inséré JUSTE AU-DESSUS du calque actif (`insertIndexAbove`). Pour l'insérer plutôt en haut de la pile, remplace l'appel dans `addLayer()` par `f.layers.length`.
+- **En-tête collant** : le bloc `.layers-head` (boutons, opacité, mode de fusion) est en `position: sticky` dans `src/ui/style.css`. Retire cette règle pour qu'il défile avec la liste.
+- **Sélection multiple** : bouton ☑ (tactile), Ctrl/Cmd + clic (ajouter/retirer), Maj + clic (plage). Le groupe = `session.selectedLayers`. Agissent sur tout le groupe : visibilité, verrou, opacité, mode de fusion, monter/descendre, fusionner, supprimer, copier, dupliquer et l'outil Déplacer.
+  Transformer et Déformer travaillent sur le calque actif seulement.
+  *Exemple : faire agir un nouvel outil sur le groupe* → utilise `session.selectedLayers` à la place de `session.layer`.
+- **Coller** n'efface jamais rien : les calques copiés sont AJOUTÉS au-dessus du calque actif (`pasteLayers`). Pour vider la frame, utilise « ∅ Vider ».
+  Entre sprites de tailles différentes, le contenu est aligné sur l'ancre (pieds) si les deux en ont une, sinon centré.
+  *Exemple : coller sans alignement* → mets `dx = 0, dy = 0` dans `pasteLayers`.
+
+## 17. Outil Déformer (`D`)
+
+Fichiers : `tools/deform.ts` (interface, 4 modes), `tools/deformMath.ts` (maillage, perspective, warp ; pur et testé), `tools/lift.ts` (soulève le contenu, partagé avec Transformer).
+Réglages `CONFIG.deform` : `perspectiveSub` (finesse du maillage de perspective), `warpGrid` (points de contrôle par côté, 4 = grille 4×4), `warpSub` (finesse de la courbe du warp), `minSizePx`.
+- **Libre** : chaque bord/coin se déplace séparément. **Ratio** : garde le rapport largeur/hauteur, le côté opposé reste fixe. **Perspective** : 4 coins indépendants (le quadrilatère doit rester convexe). **Warp** : grille de points de contrôle lissée (Catmull-Rom).
+- Changer de mode « cuit » la déformation en cours dans l'image : on peut enchaîner libre → perspective → warp. Tout s'annule en UNE étape. Entrée = appliquer, Échap = annuler.
+- *Exemple : warp plus souple* → `warpGrid: 5` (25 points). *Perspective plus précise* → `perspectiveSub: 20`.
+- *Exemple : ajouter un mode « Cisaillement »* : ajoute `'shear'` à `Mode` et `GROUP` dans `deform.ts`, un cas dans `nodes()` qui renvoie les 4 nœuds d'un parallélogramme, et la poignée correspondante.
+- Le rendu (`renderMesh`) est logiciel et suréchantillonné ×2 à la validation pour des bords lisses.
+
+## 18. Rotation de la vue
+
+Fichiers : `canvas/viewMath.ts` (maths pures et testées), `canvas/view.ts` (rendu), `canvas/input.ts` (gestes).
+- **Deux doigts** : pincer = zoom, glisser = déplacer, tourner = pivoter. La rotation ne démarre qu'après `CONFIG.view.rotateStartDeg` (8°) pour éviter de tourner par accident en zoomant ; en fin de geste, un angle résiduel inférieur à `rotateSnapDeg` (5°) est redressé.
+- **Ordinateur** : Alt + molette. Bouton 🧭 = remettre la vue droite. ⛶ = ajuster zoom + rotation.
+- La vue reste ajustée à la zone de dessin tant que tu n'as pas zoomé/déplacé/pivoté toi-même (`autoFit` dans `view.ts`).
+  *Exemple : désactiver la rotation par geste* → supprime le bloc `rotating` dans `input.ts` (zoom et déplacement continuent de marcher).
+
+## 19. Règles à respecter quand tu ajoutes de l'interface
+
+- **Nettoyage** : l'interface est reconstruite à l'ouverture d'un projet. Tout écouteur global doit passer par `listen(window, …)` ; tout abonnement par `bus.on(...)` ; toute boucle d'animation doit s'arrêter avec `registerDisposer(() => { alive = false; })` (`core/events.ts`). Sinon les raccourcis se déclenchent en double (un Ctrl+Z annulerait plusieurs actions).
+- **Barre de réglages à hauteur fixe** (`.settings` dans `style.css`) : changer d'outil ne doit jamais redimensionner la zone de dessin. Un outil avec beaucoup d'options met `hideBrushSettings: true` pour masquer taille/couleur/pinceau.
+- **PNG** : `canvasToPng` utilise l'encodeur maison `core/png.ts` (et un cache par contenu), pas `canvas.toBlob`, qui devient très lent (~1 s par image) quand la page anime en continu. Ne remets pas `toBlob`.

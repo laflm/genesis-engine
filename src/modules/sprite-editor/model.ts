@@ -92,3 +92,9 @@ export async function assetToExportItem(a: Asset, adapter: GameAdapter): Promise
 export function cloneFrame(f: Frame): Frame {
   return { layers: f.layers.map((l) => ({ ...l, id: nextId++, canvas: cloneCanvas(l.canvas) })) };
 }
+
+/** Presse-papiers de calques (copier/coller entre frames, animations et sprites). */
+export interface LayerClip {
+  w: number; h: number; ax?: number | undefined; ay?: number | undefined;
+  layers: Array<{ name: string; visible: boolean; opacity: number; locked: boolean; blend: GlobalCompositeOperation; canvas: HTMLCanvasElement }>;
+}

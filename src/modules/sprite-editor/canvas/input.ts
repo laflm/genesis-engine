@@ -1,5 +1,6 @@
 import { CONFIG } from '../../../config';
-import { bus } from '../../../core/events';
+import { angleDelta } from './viewMath';
+import { bus, listen } from '../../../core/events';
 import { pickColor } from '../tools/pipette';
 import { getSpriteTool, type PointerInfo } from '../tools';
 import { session } from '../session';
@@ -18,7 +19,8 @@ export function attachInput(view: CanvasView): void {
   let drawingId: number | null = null;
   let penSeenAt = -1e9;
   let gestureStart = 0, gestureMax = 0, gestureMoved = 0;
-  let pinch: { d: number; cx: number; cy: number } | null = null;
+  let pinch: { d: number; cx: number; cy: number; ang: number } | null = null;
+  let rotAccum = 0, rotating = false;
   let longTimer = 0;
   let spaceDown = false;
   let panning: { x: number; y: number } | null = null;
@@ -43,7 +45,7 @@ export function attachInput(view: CanvasView): void {
       cancelDraw();
       if (nTouch === 2) { gestureStart = performance.now(); gestureMax = 2; gestureMoved = 0; }
       gestureMax = Math.max(gestureMax, nTouch);
-      const [a, b] = touchPts() as [Pt, Pt]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+      const [a, b] = touchPts() as [Pt, Pt]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, ang: Math.atan2(b.y - a.y, b.x - a.x) }; rotAccum = 0; rotating = false;
       return;
     }
     if (!mayDraw(e)) return;
@@ -70,8 +72,15 @@ export function attachInput(view: CanvasView): void {
     const touches = touchPts();
     if (touches.length >= 2 && e.pointerType === 'touch') {
       const [a, b] = touches as [Pt, Pt], d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      if (pinch) { view.zoomAt(cx, cy, d / pinch.d); view.panBy(cx - pinch.cx, cy - pinch.cy); gestureMoved += Math.abs(dx) + Math.abs(dy); }
-      pinch = { d, cx, cy }; return;
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      if (pinch) {
+        view.zoomAt(cx, cy, d / pinch.d); view.panBy(cx - pinch.cx, cy - pinch.cy); gestureMoved += Math.abs(dx) + Math.abs(dy);
+        // Rotation à deux doigts : démarre après quelques degrés (évite de tourner par accident en zoomant), puis suit les doigts.
+        const dA = angleDelta(ang, pinch.ang); rotAccum += dA;
+        if (!rotating && Math.abs(rotAccum) > (CONFIG.view.rotateStartDeg * Math.PI) / 180) { rotating = true; gestureMoved += CONFIG.gestures.tapMaxMovePx; }
+        else if (rotating) view.rotateAt(cx, cy, dA);
+      }
+      pinch = { d, cx, cy, ang }; return;
     }
     if (drawingId === e.pointerId) {
       if (Math.hypot(sx - p.x0, sy - p.y0) > CONFIG.brush.longPressMovePx) clearTimeout(longTimer);
@@ -91,7 +100,7 @@ export function attachInput(view: CanvasView): void {
       if (quick) { if (gestureMax === 2) session.undo(); else if (gestureMax === 3) session.redo(); bus.emit('pixels:changed'); }
       gestureMax = 0; pinch = null;
     }
-    if (touchPts().length < 2) pinch = null;
+    if (touchPts().length < 2) { if (pinch && rotating) view.snapRotation(); pinch = null; rotating = false; }
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
@@ -100,12 +109,13 @@ export function attachInput(view: CanvasView): void {
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
     const { sx, sy } = local(e as unknown as PointerEvent);
+    if (e.altKey) { view.rotateAt(sx, sy, -e.deltaY * 0.002); return; }   // Alt + molette = pivoter la vue
     if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > 0 && !e.shiftKey && e.deltaMode === 0 && !e.deltaX) view.zoomAt(sx, sy, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
     else view.panBy(-e.deltaX, -e.deltaY);
   }, { passive: false });
 
-  window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); } });
-  window.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceDown = false; });
+  listen(window, 'keydown', (ev) => { const e = ev as KeyboardEvent; if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); } });
+  listen(window, 'keyup', (ev) => { if ((ev as KeyboardEvent).code === 'Space') spaceDown = false; });
   // Safari iPad : pas de zoom de page involontaire.
-  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault());
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) listen(document, ev, (e) => e.preventDefault());
 }

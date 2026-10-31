@@ -29,8 +29,8 @@ Bots de test de bout en bout : `npm run build:local && pip install playwright pi
 4. **▶ Tester** : lance le jeu dans une fenêtre avec ton pack (le code du jeu n'est pas modifié).
 5. **⬇ Exporter** : ZIP à extraire à la racine du repo du jeu ; `README_UPLOAD.txt` explique l'upload, `PATCH_NOTES.txt` liste les modifications manuelles éventuelles.
 
-Gestes : Pencil/souris dessine ; deux doigts = déplacer/zoomer ; tap 2 doigts = annuler ; tap 3 doigts = rétablir ; appui long = pipette.
-Outils : `S` sélection (rectangle/ellipse/lasso, tap = désélectionner), `T` transformer (déplacer/pivoter/échelle/miroir), `U` fondu de couleurs, modes de fusion par calque.
+Gestes : Pencil/souris dessine ; deux doigts = déplacer, zoomer et PIVOTER la vue (🧭 = remettre droit) ; tap 2 doigts = annuler ; tap 3 doigts = rétablir ; appui long = pipette.
+Outils : `D` déformer (libre, ratio, perspective, warp), `S` sélection (rectangle/ellipse/lasso, tap = désélectionner), `T` transformer (déplacer/pivoter/échelle/miroir), `U` fondu de couleurs, modes de fusion par calque.
 Clavier : Ctrl+Z / Ctrl+Maj+Z, B pinceau, E gomme, G remplir, I pipette, V déplacer, `[` `]` taille, `,` `.` frames, Espace + glisser = déplacer la vue.
 
 ## Documentation

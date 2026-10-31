@@ -2,7 +2,7 @@ import { CONFIG } from '../../config';
 import { bus } from '../../core/events';
 import { History } from '../../core/undo';
 import type { GameAdapter } from '../../shared/types';
-import { SPRITE_ANIM, type Asset, type Frame, type Layer } from './model';
+import { SPRITE_ANIM, type Asset, type Frame, type Layer, type LayerClip } from './model';
 import { Project } from './project';
 
 /** État vivant de l'éditeur. Les modules lisent/écrivent ici et réagissent via le bus d'événements. */
@@ -26,10 +26,11 @@ export class Session {
   showReference = true;
   moveAllLayers = false;
   mode: string = CONFIG.modes[0].id;
-  clipboard: Frame | null = null;
-  /** Appelés avant annuler/rétablir (ex. valider une transformation en cours). */
-  beforeHistory: Array<() => void> = [];
-  view: { zoom: number; x: number; y: number } = { zoom: CONFIG.view.defaultZoom, x: 0, y: 0 };
+  clipboard: LayerClip | null = null;
+  /** Calques sélectionnés en plus du calque actif (sélection multiple). */
+  selectedIds = new Set<number>();
+  multiSelect = false;
+  view: { zoom: number; x: number; y: number; rot: number } = { zoom: CONFIG.view.defaultZoom, x: 0, y: 0, rot: 0 };
 
   constructor(public adapter: GameAdapter, project?: Project) { this.project = project ?? new Project(adapter); }
 
@@ -41,20 +42,26 @@ export class Session {
     return f.layers.find((l) => l.id === this.layerId) ?? f.layers[f.layers.length - 1];
   }
 
-  undo(): boolean { this.beforeHistory.forEach((f) => f()); return this.history.undo(); }
-  redo(): boolean { this.beforeHistory.forEach((f) => f()); return this.history.redo(); }
+  undo(): boolean { bus.emit('history:before'); return this.history.undo(); }
+  redo(): boolean { bus.emit('history:before'); return this.history.redo(); }
+
+  /** Calques sélectionnés : le groupe multiple + toujours le calque actif. */
+  get selectedLayers(): Layer[] {
+    const f = this.frame, act = this.layer; if (!f) return [];
+    return f.layers.filter((l) => l === act || this.selectedIds.has(l.id));
+  }
 
   select(key: string | null): void {
     this.assetKey = key;
     const a = key ? this.project.ensure(key) : undefined;
     this.anim = a ? (a.anims[this.anim] ? this.anim : Object.keys(a.anims)[0]!) : this.anim;
-    this.frameIdx = 0; this.layerId = null;
+    this.frameIdx = 0; this.layerId = null; this.selectedIds.clear();
     bus.emit('asset:selected'); bus.emit('project:changed');
   }
-  setAnim(anim: string): void { this.anim = anim; this.frameIdx = 0; this.layerId = null; bus.emit('frame:changed'); }
+  setAnim(anim: string): void { this.anim = anim; this.frameIdx = 0; this.layerId = null; this.selectedIds.clear(); bus.emit('frame:changed'); }
   setFrame(i: number): void {
     const n = this.frames.length; if (!n) return;
-    this.frameIdx = (i + n) % n; this.layerId = null; bus.emit('frame:changed');
+    this.frameIdx = (i + n) % n; this.layerId = null; this.selectedIds.clear(); bus.emit('frame:changed');
   }
   /** Marque l'asset comme modifié (impacte l'export partiel) et prévient les autres modules. */
   touch(a: Asset | undefined = this.asset): void {

@@ -15,8 +15,9 @@ let timer = 0;
 function autosave(): void {
   clearTimeout(timer);
   timer = window.setTimeout(async () => {
+    const startedAt = Date.now();   // l'état sauvegardé est celui du DÉBUT de la sérialisation
     try { await storage.put(`${CONFIG.storage.projectKey}:${session.adapter.id}`, await serializeProject(session.project));
-      (window as unknown as { __genesisSavedAt: number }).__genesisSavedAt = Date.now(); } catch { /* quota / navigation privée */ }
+      (window as unknown as { __genesisSavedAt: number }).__genesisSavedAt = startedAt; } catch (e) { (window as unknown as { __genesisSaveError: string }).__genesisSaveError = String(e); /* quota / navigation privée */ }
   }, CONFIG.autosaveMs);
 }
 

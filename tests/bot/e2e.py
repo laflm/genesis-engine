@@ -48,6 +48,11 @@ with sync_playwright() as pw:
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.on('console', lambda m: errors.append(m.text) if m.type == 'error' and 'unpkg' not in m.text and 'ERR_' not in m.text and 'Failed to load resource' not in m.text else None)
+    _press = page.keyboard.press
+    def _press_wait(k, **kw):
+        _press(k, **kw)
+        if len(k) == 1: page.wait_for_timeout(150)     # changement d'outil : laisse la mise en page se stabiliser
+    page.keyboard.press = _press_wait
     page.goto(URL); page.wait_for_selector('.topbar')
     check('démarrage : jeu choisi et interface chargée', page.locator('.brand').inner_text().startswith('GENESIS'))
 
@@ -103,7 +108,7 @@ with sync_playwright() as pw:
     check('gomme : retire des pixels', alpha_count(page) < after_mouse)
     page.keyboard.press('Control+z')
     # calques
-    page.get_by_role('button', name='＋').first.click()
+    page.get_by_role('button', name='Nouveau calque').first.click()
     ln = page.evaluate("() => window.__genesis.session.frame.layers.length")
     check('calques : ajout', ln == 2, str(ln))
     page.keyboard.press('Control+z')
@@ -120,6 +125,11 @@ with sync_playwright() as pw:
     ink = page.evaluate("""() => { const c = document.querySelector('.preview-canvas'); const d = c.getContext('2d').getImageData(0,0,c.width,c.height).data; const bg=[0xcf,0xe8,0xff]; let n=0; for (let i=0;i<d.length;i+=4) if (Math.abs(d[i]-bg[0])+Math.abs(d[i+1]-bg[1])+Math.abs(d[i+2]-bg[2])>60) n++; return n; }""")
     check('aperçu : le personnage équipé est dessiné', ink > 800, str(ink))
     page.locator('.preview-canvas').screenshot(path=os.path.join(OUT, 'preview_equipped.png'))
+    # la sauvegarde auto ne doit pas être ralentie par l'aperçu animé (encodage PNG indépendant de l'activité de la page)
+    t_probe = page.evaluate('() => { const t = Date.now(); window.__genesis.session.touch(); return t; }'); t_start = time.time()
+    try: page.wait_for_function('t => (window.__genesisSavedAt || 0) > t', arg=t_probe, timeout=20000, polling=250); took = time.time() - t_start
+    except Exception: took = 99
+    check('sauvegarde auto rapide (< 10 s) même avec l\'aperçu équipé animé affiché', took < 10, f'{took:.1f} s')
     def clipped_edges():
         return page.evaluate("""() => { const c = document.querySelector('.preview-canvas'), d = c.getContext('2d').getImageData(0,0,c.width,c.height).data, bg=[0xcf,0xe8,0xff]; let n=0;
           const diff = (x,y) => { const i=(y*c.width+x)*4; return Math.abs(d[i]-bg[0])+Math.abs(d[i+1]-bg[1])+Math.abs(d[i+2]-bg[2])>60; };
@@ -193,8 +203,8 @@ with sync_playwright() as pw:
     page.get_by_role('button', name='OK').click()
     check('import fond : le fond blanc est transparent, l\'œil blanc intérieur conservé', page.evaluate("""() => { const a = window.__genesis.session.project.assets.get('gate'); if (!a) return 'absent'; const c = a.anims._[0].layers[0].canvas, d = c.getContext('2d').getImageData(0,0,c.width,c.height).data; const px = (x,y) => d[(y*c.width+x)*4+3]; return px(2,2) === 0 && px(140,90) === 255; }""") is True)
     # ---- 7. Projet : sauvegarde auto + restauration après rechargement ----
-    t_import = page.evaluate('() => Date.now()')
-    page.wait_for_function('t => (window.__genesisSavedAt || 0) > t', arg=t_import, timeout=20000)
+    t_import = page.evaluate('() => { const t = Date.now(); window.__genesis.session.touch(); return t; }')
+    page.wait_for_function('t => (window.__genesisSavedAt || 0) > t', arg=t_import, timeout=30000, polling=250)
     page.reload(); page.wait_for_selector('.topbar'); page.wait_for_timeout(800)
     n2 = page.evaluate("() => window.__genesis.session.project.assets.size")
     check('projet : restauré après rechargement (autosave IndexedDB)', n2 >= 9, str(n2))
@@ -272,7 +282,7 @@ with sync_playwright() as pw:
     check('fondu : des pixels mélangés rouge+bleu apparaissent', len(purple) >= 2, str([m[:3] for m in mixed]))
     page.keyboard.press('Control+z'); check('fondu : annulable en une étape', layer_px(46, 20)[:3] == [255, 0, 0])
     # modes de fusion de calque : multiplier rouge × gris
-    page.get_by_role('button', name='Calques', exact=True).click(); page.get_by_role('button', name='＋').first.click()
+    page.get_by_role('button', name='Calques', exact=True).click(); page.get_by_role('button', name='Nouveau calque').first.click()
     set_state("s.color = '#808080'; s.brushId = 'solid';"); page.keyboard.press('g'); page.mouse.click(*to_screen(32, 50))
     flat = lambda: page.evaluate("() => { const {session, flattenFrame} = window.__genesis; const c = flattenFrame(session.frame, session.asset.w, session.asset.h); return [...c.getContext('2d').getImageData(10, 50, 1, 1).data]; }")
     check('fusion Normal : le gris recouvre le rouge', flat()[:3] == [128, 128, 128], str(flat()))
@@ -288,7 +298,7 @@ with sync_playwright() as pw:
     check('export : le mode de fusion est appliqué dans le PNG exporté (128,0,0)', abs(forge.getpixel((10, 50))[0] - 128) <= 1 and forge.getpixel((10, 50))[1] == 0, str(forge.getpixel((10, 50))))
     # persistance du mode de fusion
     t_save = page.evaluate('() => Date.now()'); page.evaluate("() => window.__genesis.session.touch()")
-    page.wait_for_function('t => (window.__genesisSavedAt || 0) > t', arg=t_save, timeout=20000)
+    page.wait_for_function('t => (window.__genesisSavedAt || 0) > t', arg=t_save, timeout=20000, polling=250)
     page.reload(); page.wait_for_selector('.topbar'); page.wait_for_timeout(800)
     page.evaluate("() => window.__genesis.session.select('forge')"); page.wait_for_timeout(200)
     check('projet : le mode de fusion survit au rechargement', page.evaluate("() => window.__genesis.session.frame.layers.some(l => l.blend === 'multiply')"))
@@ -318,6 +328,160 @@ with sync_playwright() as pw:
     except Exception: ok_msg = False
     check('projet : un fichier invalide donne un message clair (pas d\'échec silencieux)', ok_msg)
     page.get_by_role('button', name='Fermer').click()
+
+    # ---- 10. Calques : insertion, en-tête collant, sélection multiple, copier/coller ----
+    import re, math
+    def names(): return page.evaluate("() => window.__genesis.session.frame.layers.map(l => l.name)")
+    def layer_alpha(i): return page.evaluate("(i) => { const c = window.__genesis.session.frame.layers[i].canvas, d = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let n=0; for (let k=3;k<d.length;k+=4) if (d[k]>0) n++; return n; }", i)
+    def centroid_x(i): return page.evaluate("(i) => { const c = window.__genesis.session.frame.layers[i].canvas, d = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let s=0,n=0; for (let y=0;y<c.height;y++) for (let x=0;x<c.width;x++) if (d[(y*c.width+x)*4+3]>0) { s+=x; n++; } return n ? s/n : -1; }", i)
+    def pen_dab(fx_, fy_):
+        sx, sy = to_screen(fx_, fy_); box = page.locator('.main-canvas').bounding_box()
+        page.evaluate("([x, y]) => { const el = document.querySelector('.main-canvas'); const mk = (t) => new PointerEvent(t, {pointerId: 91, pointerType: 'pen', pressure: 0.9, clientX: x, clientY: y, bubbles: true, isPrimary: true, button: 0, buttons: 1}); el.dispatchEvent(mk('pointerdown')); el.dispatchEvent(mk('pointermove')); el.dispatchEvent(mk('pointerup')); }", [sx, sy])
+    # après réouverture de projet, l'interface a été reconstruite : un raccourci ne doit agir QU'UNE fois
+    page.evaluate("() => { const s = window.__genesis.session; s.select('house'); s.color = '#3366ff'; s.brushId = 'solid'; s.size = 6; }"); page.wait_for_timeout(300); page.keyboard.press('b')
+    pen_dab(12, 12); c1 = alpha_count(page); pen_dab(40, 40); page.keyboard.press('Control+z')
+    check('raccourcis : un seul Ctrl+Z = une seule action annulée (pas d\'écouteurs en double)', alpha_count(page) == c1 and c1 > 0, f'{alpha_count(page)} vs {c1}')
+    page.keyboard.press('Control+z')
+    page.evaluate("() => { const s = window.__genesis.session; const f = s.frame; f.layers.splice(1, f.layers.length); s.history.clear(); }")
+    page.evaluate("() => { const s = window.__genesis.session; s.select('house'); }"); page.wait_for_timeout(300)
+    page.get_by_role('button', name='Calques', exact=True).click()
+    page.get_by_role('button', name='Nouveau calque').first.click(); page.get_by_role('button', name='Nouveau calque').first.click()
+    check('calques : 3 calques créés', names() == ['Calque 1', 'Calque 2', 'Calque 3'], str(names()))
+    page.locator('.layer .name', has_text=re.compile(r'^Calque 1$')).click()
+    page.get_by_role('button', name='Nouveau calque').first.click()
+    check('nouveau calque : inséré JUSTE AU-DESSUS du calque sélectionné', names() == ['Calque 1', 'Calque 4', 'Calque 2', 'Calque 3'], str(names()))
+    check('nouveau calque : devient le calque actif', page.evaluate("() => window.__genesis.session.layer.name") == 'Calque 4')
+    page.keyboard.press('Control+z'); check('nouveau calque : annulable à la bonne place', names() == ['Calque 1', 'Calque 2', 'Calque 3'], str(names()))
+    page.keyboard.press('Control+Shift+z'); check('nouveau calque : rétablissable à la bonne place', names() == ['Calque 1', 'Calque 4', 'Calque 2', 'Calque 3'])
+    # en-tête collant pendant le défilement
+    for _ in range(11): page.get_by_role('button', name='Nouveau calque').first.click()
+    page.evaluate("() => { document.querySelector('.panes').scrollTop = 600; }"); page.wait_for_timeout(150)
+    geo = page.evaluate("() => { const p = document.querySelector('.panes').getBoundingClientRect(), h = document.querySelector('.layers-head').getBoundingClientRect(), r = document.querySelector('.layer').getBoundingClientRect(); return {panes: p.top, head: h.top, headBottom: h.bottom, firstRow: r.top, scroll: document.querySelector('.panes').scrollTop}; }")
+    check('liste défilée : le contenu a bien défilé', geo['scroll'] > 100, str(geo))
+    check('en-tête des réglages collé en haut de la liste pendant le défilement', abs(geo['head'] - geo['panes']) <= 2, str(geo))
+    check('les premières lignes ont disparu sous l\'en-tête (défilement réel)', geo['firstRow'] < geo['headBottom'], str(geo))
+    page.evaluate("() => { document.querySelector('.panes').scrollTop = 0; }")
+    # sélection multiple : on repart de 3 calques propres
+    page.evaluate("() => window.__genesis.session.select('house')"); page.evaluate("() => window.__genesis.session.select('shop')"); page.evaluate("() => window.__genesis.session.select('house')"); page.wait_for_timeout(200)
+    # (re-sélectionner un asset ne supprime pas les calques : on teste donc sur l'état courant)
+    n0 = len(names())
+    page.locator('button[aria-label^="Sélection multiple"]').click()
+    rows = page.locator('.layer'); rows.nth(1).click(); rows.nth(2).click()
+    nsel = page.evaluate("() => window.__genesis.session.selectedLayers.length")
+    check('multi-sélection : plusieurs calques sélectionnés (surbrillance)', nsel >= 3 and page.locator('.layer.sel').count() >= 3, f'{nsel} sélectionnés, {page.locator(".layer.sel").count()} en surbrillance')
+    page.select_option('select[aria-label="Mode de fusion"]', 'multiply')
+    nm = page.evaluate("() => window.__genesis.session.frame.layers.filter(l => l.blend === 'multiply').length")
+    check('multi-sélection : le réglage s\'applique à TOUS les calques sélectionnés', nm == nsel, f'{nm}/{nsel}')
+    page.keyboard.press('Control+z')
+    check('multi-sélection : annulation du réglage de groupe en UNE étape', page.evaluate("() => window.__genesis.session.frame.layers.filter(l => l.blend === 'multiply').length") == 0)
+    sel_names = lambda: page.evaluate("() => { const s = window.__genesis.session, set = new Set(s.selectedLayers); return s.frame.layers.filter(l => set.has(l)).map(l => l.name); }")
+    before_order, before_sel = names(), sel_names(); page.get_by_role('button', name='Descendre').click(); after_order = names()
+    check('multi-sélection : descendre le groupe le déplace et garde son ordre relatif', after_order != before_order and sel_names() == before_sel and len(after_order) == len(before_order), f'{before_order} -> {after_order}')
+    page.keyboard.press('Control+z'); check('multi-sélection : changement d\'ordre annulable', names() == before_order)
+    page.get_by_role('button', name='Fusionner les calques sélectionnés').click()
+    check('multi-sélection : fusion de tous les calques sélectionnés en un seul', len(names()) == n0 - (nsel - 1), f'{n0} -> {len(names())}, sélectionnés {nsel}')
+    page.keyboard.press('Control+z'); check('multi-sélection : fusion annulable', len(names()) == n0)
+    page.locator('button[aria-label^="Sélection multiple"]').click()   # mode multi désactivé
+    # le Déplacer agit sur les calques sélectionnés seulement
+    page.evaluate("() => { const s = window.__genesis.session; const f = s.frame; f.layers.splice(0, f.layers.length, ...f.layers.slice(0, 3)); s.layerId = f.layers[0].id; s.selectedIds.clear(); }")
+    page.evaluate("() => { window.__genesis.session.color = '#00aa00'; window.__genesis.session.brushId = 'solid'; window.__genesis.session.size = 6; }")
+    for i, (lx, ly) in enumerate([(12, 10), (20, 22), (30, 40)]):
+        page.evaluate("(i) => { const s = window.__genesis.session; s.layerId = s.frame.layers[i].id; }", i); page.keyboard.press('b'); pen_dab(lx, ly)
+    cx0 = [centroid_x(i) for i in range(3)]
+    page.evaluate("() => { const s = window.__genesis.session; s.layerId = s.frame.layers[0].id; s.selectedIds = new Set([s.frame.layers[0].id, s.frame.layers[1].id]); }")
+    page.keyboard.press('v'); drag_frame((30, 30), (40, 30)); cx1 = [centroid_x(i) for i in range(3)]
+    check('Déplacer : les 2 calques sélectionnés bougent ensemble (+10 px)', abs(cx1[0] - cx0[0] - 10) < 1.5 and abs(cx1[1] - cx0[1] - 10) < 1.5, f'{cx0} -> {cx1}')
+    check('Déplacer : le calque non sélectionné ne bouge pas', abs(cx1[2] - cx0[2]) < 0.5)
+    page.evaluate("() => { window.__genesis.session.selectedIds.clear(); }")
+
+    # collage : AJOUTE des calques sans rien effacer ; copier/coller de calques entre assets de tailles différentes
+    page.evaluate("() => { const s = window.__genesis.session; s.select('hero'); s.setAnim('idle'); s.setFrame(1); }"); page.wait_for_timeout(250)
+    f1_names, f1_alpha = names(), layer_alpha(0)
+    page.evaluate("() => window.__genesis.session.setFrame(0)"); a0 = layer_alpha(0)
+    page.locator('.tl-actions button', has_text='Copier').first.click()
+    page.evaluate("() => window.__genesis.session.setFrame(1)"); page.wait_for_timeout(200)
+    page.locator('.tl-actions button', has_text='Coller').click(); page.wait_for_timeout(200)
+    check('coller une frame : ajoute un calque sans effacer l\'existant', len(names()) == len(f1_names) + 1 and layer_alpha(0) == f1_alpha, f'{f1_names} -> {names()}, pixels {f1_alpha} -> {layer_alpha(0)}')
+    check('coller : le calque collé est AU-DESSUS du calque actif et a le contenu copié', layer_alpha(1) == a0 and page.evaluate("() => window.__genesis.session.layer.id === window.__genesis.session.frame.layers[1].id"), f'{layer_alpha(1)} vs {a0}')
+    page.keyboard.press('Control+z'); check('coller : annulable en une étape', len(names()) == len(f1_names))
+    # copier un calque puis le coller dans un autre sprite (autre taille)
+    page.evaluate("() => { const s = window.__genesis.session; s.setFrame(0); }")
+    page.get_by_role('button', name='Copier les calques sélectionnés').click()
+    page.evaluate("() => window.__genesis.session.select('shop')"); page.wait_for_timeout(250)
+    n_before = len(names()); page.get_by_role('button', name='Coller au-dessus').click(); page.wait_for_timeout(200)
+    check('copier/coller de calque entre sprites de tailles différentes', len(names()) == n_before + 1 and layer_alpha(1) > 0, f'{n_before} -> {len(names())}, pixels {layer_alpha(1)}')
+    page.get_by_role('button', name='Dupliquer les calques sélectionnés').click()
+    check('dupliquer : ajoute une copie au-dessus', len(names()) == n_before + 2)
+
+    # ---- 11. Outil Déformer : libre, ratio, perspective, warp ----
+    def alpha_bbox():
+        return page.evaluate("() => { const c = window.__genesis.session.layer.canvas, d = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let x0=1e9,y0=1e9,x1=-1,y1=-1; for (let y=0;y<c.height;y++) for (let x=0;x<c.width;x++) if (d[(y*c.width+x)*4+3] > 128) { x0=Math.min(x0,x); x1=Math.max(x1,x); y0=Math.min(y0,y); y1=Math.max(y1,y); } return x1<0 ? null : [x0,y0,x1-x0+1,y1-y0+1]; }")
+    page.evaluate("() => { const s = window.__genesis.session; s.select('arcade'); s.color = '#ff0000'; }"); page.wait_for_timeout(300)
+    page.keyboard.press('g'); page.mouse.click(*to_screen(32, 32))
+    check('déformer : préparation, calque rempli 64×64', alpha_bbox() == [0, 0, 64, 64], str(alpha_bbox()))
+    page.keyboard.press('d'); page.wait_for_timeout(200)
+    check('raccourci D : outil Déformer actif, 4 modes proposés', page.evaluate("() => window.__genesis.session.toolId") == 'deform' and page.locator('button[data-mode]').count() == 4)
+    drag_frame((64, 32), (32, 32)); page.keyboard.press('Enter'); page.wait_for_timeout(250)
+    bb = alpha_bbox(); check('déformer LIBRE : la poignée droite réduit la largeur seulement (32×64)', bb is not None and abs(bb[2] - 32) <= 1 and bb[3] == 64, str(bb))
+    page.keyboard.press('Control+z'); check('déformer : annulable en une étape', alpha_bbox() == [0, 0, 64, 64], str(alpha_bbox()))
+    page.keyboard.press('d'); page.get_by_role('button', name='Ratio', exact=True).click()
+    drag_frame((64, 64), (32, 32)); page.keyboard.press('Enter'); page.wait_for_timeout(250)
+    bb = alpha_bbox(); check('déformer RATIO : le coin garde les proportions (32×32)', bb is not None and abs(bb[2] - 32) <= 1 and abs(bb[3] - 32) <= 1, str(bb))
+    page.keyboard.press('Control+z')
+    page.keyboard.press('d'); page.get_by_role('button', name='Perspective', exact=True).click()
+    drag_frame((64, 0), (64, 24)); page.keyboard.press('Enter'); page.wait_for_timeout(250)
+    check('déformer PERSPECTIVE : coin haut-droit descendu → bord supérieur incliné', layer_px(62, 5)[3] == 0 and layer_px(62, 40)[3] == 255 and layer_px(2, 2)[3] == 255 and layer_px(32, 3)[3] == 0 and layer_px(32, 20)[3] == 255, str([layer_px(62, 5), layer_px(62, 40), layer_px(2, 2), layer_px(32, 3), layer_px(32, 20)]))
+    page.keyboard.press('Control+z')
+    page.keyboard.press('d'); page.get_by_role('button', name='Warp', exact=True).click()
+    drag_frame((64 / 3, 0), (64 / 3, 24)); page.keyboard.press('Enter'); page.wait_for_timeout(250)
+    check('déformer WARP : un point de contrôle creuse le bord, le reste est intact', layer_px(21, 8)[3] == 0 and layer_px(50, 10)[3] == 255 and layer_px(10, 50)[3] == 255, str([layer_px(21, 8), layer_px(50, 10), layer_px(10, 50)]))
+    page.keyboard.press('Control+z')
+    # enchaîner deux modes : libre (largeur /2) puis perspective, sans rien perdre
+    page.keyboard.press('d'); page.get_by_role('button', name='Libre', exact=True).click(); drag_frame((64, 32), (32, 32))
+    page.get_by_role('button', name='Perspective', exact=True).click(); drag_frame((32, 0), (32, 20)); page.keyboard.press('Enter'); page.wait_for_timeout(300)
+    bb = alpha_bbox(); check('déformer : enchaîner libre puis perspective garde le travail du 1er mode', bb is not None and abs(bb[2] - 32) <= 1 and layer_px(30, 4)[3] == 0 and layer_px(30, 40)[3] == 255, f'{bb} {layer_px(30, 4)}')
+    page.keyboard.press('Control+z'); check('déformer : les deux modes s\'annulent en UNE étape', alpha_bbox() == [0, 0, 64, 64], str(alpha_bbox()))
+    page.keyboard.press('d'); page.keyboard.press('Escape'); page.wait_for_timeout(150)
+    check('déformer : Échap annule sans toucher au calque', alpha_bbox() == [0, 0, 64, 64])
+    # avec une sélection : seule la zone choisie est déformée
+    page.keyboard.press('s'); drag_frame((0, 0), (32, 64)); page.keyboard.press('d'); page.get_by_role('button', name='Libre', exact=True).click()
+    drag_frame((16, 64), (16, 32)); page.keyboard.press('Enter'); page.wait_for_timeout(250)
+    check('déformer : agit sur la sélection seulement (moitié gauche réduite, moitié droite intacte)', layer_px(10, 50)[3] == 0 and layer_px(50, 50)[3] == 255 and layer_px(10, 20)[3] == 255, str([layer_px(10, 50), layer_px(50, 50), layer_px(10, 20)]))
+    page.keyboard.press('Control+z'); page.keyboard.press('Control+d')
+
+    # ---- 12. Rotation de la vue à deux doigts ----
+    page.evaluate("() => { const s = window.__genesis.session; s.select('forge'); }"); page.wait_for_timeout(300)
+    page.get_by_role('button', name='Nouveau calque').first.click()
+    def to_screen_rot(x, y):
+        v = page.evaluate("() => window.__genesis.session.view"); box = page.locator('.main-canvas').bounding_box(); c, s_ = math.cos(v['rot']), math.sin(v['rot'])
+        return box['x'] + v['x'] + (x * v['zoom'] * c - y * v['zoom'] * s_), box['y'] + v['y'] + (x * v['zoom'] * s_ + y * v['zoom'] * c)
+    rot0 = page.evaluate("() => window.__genesis.session.view.rot")
+    page.evaluate("""() => { const el = document.querySelector('.main-canvas'), r = el.getBoundingClientRect(), cx = r.x + r.width/2, cy = r.y + r.height/2;
+      const mk = (t, id, x, y) => new PointerEvent(t, {pointerId: 400+id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: id===0, button: 0, buttons: 1});
+      const pos = (id, th) => [cx + (id ? 80 : -80) * Math.cos(th), cy + (id ? 80 : -80) * Math.sin(th)];
+      el.dispatchEvent(mk('pointerdown', 0, ...pos(0, 0))); el.dispatchEvent(mk('pointerdown', 1, ...pos(1, 0)));
+      for (let a = 2; a <= 60; a += 2) { const th = a * Math.PI / 180; el.dispatchEvent(mk('pointermove', 0, ...pos(0, th))); el.dispatchEvent(mk('pointermove', 1, ...pos(1, th))); }
+      el.dispatchEvent(mk('pointerup', 0, ...pos(0, 1.05))); el.dispatchEvent(mk('pointerup', 1, ...pos(1, 1.05))); }""")
+    rot1 = page.evaluate("() => window.__genesis.session.view.rot")
+    check('deux doigts qui tournent : la vue pivote (≈ +50°)', 0.7 < rot1 - rot0 < 1.1, f'{math.degrees(rot1 - rot0):.1f}°')
+    sx_, sy_ = to_screen_rot(20, 20); page.keyboard.press('b')
+    page.evaluate("([x, y]) => { const el = document.querySelector('.main-canvas'); const mk = (t) => new PointerEvent(t, {pointerId: 92, pointerType: 'pen', pressure: 0.9, clientX: x, clientY: y, bubbles: true, isPrimary: true, button: 0, buttons: 1}); el.dispatchEvent(mk('pointerdown')); el.dispatchEvent(mk('pointerup')); }", [sx_, sy_])
+    check('vue pivotée : le trait tombe exactement sous le stylet (pixel 20,20)', layer_px(20, 20)[3] > 0 and layer_px(40, 40)[3] == 0, str(layer_px(20, 20)))
+    page.keyboard.press('Control+z')
+    page.get_by_role('button', name='Rotation de la vue à zéro').click()
+    check('bouton boussole : la vue redevient droite', abs(page.evaluate("() => window.__genesis.session.view.rot")) < 1e-6)
+    page.keyboard.down('Alt'); page.mouse.move(600, 300); page.mouse.wheel(0, 300); page.keyboard.up('Alt'); page.wait_for_timeout(100)
+    check('Alt + molette : pivote la vue sur ordinateur', abs(page.evaluate("() => window.__genesis.session.view.rot")) > 0.1)
+    page.get_by_role('button', name='Rotation de la vue à zéro').click()
+    # rotation accidentelle minuscule : pas de rotation (seuil de démarrage)
+    page.evaluate("""() => { const el = document.querySelector('.main-canvas'), r = el.getBoundingClientRect(), cx = r.x + r.width/2, cy = r.y + r.height/2;
+      const mk = (t, id, x, y) => new PointerEvent(t, {pointerId: 500+id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: id===0, button: 0, buttons: 1});
+      const pos = (id, th, d) => [cx + (id ? d : -d) * Math.cos(th), cy + (id ? d : -d) * Math.sin(th)];
+      el.dispatchEvent(mk('pointerdown', 0, ...pos(0, 0, 80))); el.dispatchEvent(mk('pointerdown', 1, ...pos(1, 0, 80)));
+      for (let k = 1; k <= 10; k++) { const th = (k * 0.5) * Math.PI / 180, d = 80 + k * 6; el.dispatchEvent(mk('pointermove', 0, ...pos(0, th, d))); el.dispatchEvent(mk('pointermove', 1, ...pos(1, th, d))); }
+      el.dispatchEvent(mk('pointerup', 0, ...pos(0, 0.1, 140))); el.dispatchEvent(mk('pointerup', 1, ...pos(1, 0.1, 140))); }""")
+    check('pincer pour zoomer sans tourner : pas de rotation parasite (seuil)', abs(page.evaluate("() => window.__genesis.session.view.rot")) < 1e-6)
+
     check('aucune erreur JavaScript pendant toute la session', not errors, '; '.join(errors[:3]))
     browser.close()
 

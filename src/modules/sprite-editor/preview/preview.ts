@@ -1,5 +1,5 @@
 import { CONFIG } from '../../../config';
-import { bus } from '../../../core/events';
+import { bus, registerDisposer } from '../../../core/events';
 import type { AnimState } from '../../../shared/types';
 import { drawFrame, type Asset } from '../model';
 import { session } from '../session';
@@ -42,8 +42,11 @@ export function createPreview(host: HTMLElement): { redraw(): void } {
     const f = a.anims[anim]?.[fr]; if (!f) return;
     drawFrame(g, f, a.w, a.h, 1, -(a.spec.ax ?? a.w / 2), -(a.spec.ay ?? a.h));
   };
+  let alive = true; registerDisposer(() => { alive = false; });
   const loop = (now: number): void => {
+    if (!alive) return;
     t += (now - last) / 1000; last = now;
+    if (cv.offsetParent === null) { requestAnimationFrame(loop); return; }   // onglet masqué : on ne dessine pas (libère le CPU)
     const g = cv.getContext('2d')!, W = cv.width, H = cv.height;
     g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = CONFIG.preview.background; g.fillRect(0, 0, W, H);
     const body = session.project.assets.get(bodySel.value);

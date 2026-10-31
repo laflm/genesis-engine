@@ -22,7 +22,7 @@ export const CONFIG = {
   },
   fill: { tolerance: 24 },
   /** pixelGridZoom : au-delà de ce zoom, les pixels sont affichés nets (sans lissage). */
-  view: { minZoom: 0.25, maxZoom: 40, defaultZoom: 3, pixelGridZoom: 8 },
+  view: { minZoom: 0.25, maxZoom: 40, defaultZoom: 3, pixelGridZoom: 8, rotateStartDeg: 8, rotateSnapDeg: 5 },
   gestures: { tapMaxMs: 280, tapMaxMovePx: 14, touchDrawsWithoutPen: true, penRejectPalmMs: 1500 },
   import: { bgTolerance: 24, smoothScale: true },
   export: { baseName: 'genesis-export', warnFileBytes: 1_500_000 },
@@ -61,5 +61,7 @@ export const CONFIG = {
   /** Sélection et transformation. handlePx = rayon tactile des poignées (px écran). */
   transform: { handlePx: 22, rotateOffsetPx: 36, minScale: 0.05, maxScale: 20, stepDeg: 15 },
   selection: { antsSpeed: 40, lassoMinPx: 6, tapMaxPx: 6 },
+  /** Déformer : finesse du maillage de perspective, grille de contrôle du warp (n×n points) et sa finesse. */
+  deform: { perspectiveSub: 12, warpGrid: 4, warpSub: 12, minSizePx: 2 },
   pwa: { serviceWorker: './sw.js' },
 } as const;

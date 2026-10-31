@@ -5,5 +5,6 @@ import './pipette';
 import './move';
 import './select';
 import './transform';
+import './deform';
 import './blend';
 export * from './registry';

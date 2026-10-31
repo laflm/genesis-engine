@@ -12,7 +12,7 @@ export function createTimeline(host: HTMLElement): void {
   const orig = h('button', { class: 'btn small', title: 'Superposer l\'original importé', onclick: () => { session.showOriginal = !session.showOriginal; bus.emit('view:changed'); render(); } }, '⇄ Original');
   const actions = h('div', { class: 'tl-actions' },
     tool('⏮', 'Frame précédente', () => session.setFrame(session.frameIdx - 1)), tool('⏭', 'Frame suivante', () => session.setFrame(session.frameIdx + 1)),
-    onion, orig, tool('⧉ Copier', 'Copier la frame', copyFrame), tool('⎘ Coller', 'Coller la frame', pasteFrame), tool('∅ Vider', 'Vider la frame', clearFrame),
+    onion, orig, tool('⧉ Copier', 'Copier la frame (tous ses calques)', copyFrame), tool('⎘ Coller', 'Coller : AJOUTE les calques copiés au-dessus du calque actif, sans rien effacer', pasteFrame), tool('∅ Vider', 'Vider la frame', clearFrame),
     tool('↺ Original', 'Revenir à l\'original pour cette frame', () => {
       const a = session.asset; if (!a?.original) return;
       revertFrame(() => { const r = cellRect(a, session.adapter, session.anim, session.frameIdx); const c = document.createElement('canvas'); c.width = r.w; c.height = r.h; c.getContext('2d')!.drawImage(a.original!, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); return c; });

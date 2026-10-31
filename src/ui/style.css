@@ -92,3 +92,10 @@ input[type=text],input[type=search],input[type=number],select{min-height:var(--t
 .settings input[type=range]{width:120px}
 .tool-options .val{white-space:nowrap}
 .tool-options .btn.small{min-width:var(--touch)}
+/* En-tête du panneau Calques : reste visible pendant le défilement de la liste. */
+.layers-head{position:sticky;top:0;z-index:3;background:var(--panel);margin:0 -8px 6px;padding:8px 8px 4px;border-bottom:1px solid #0006;box-shadow:0 4px 6px -4px #000a}
+.layer.sel{background:#2b4a6b;outline:2px solid #4da3ff88}.layer.sel.active{outline:2px solid var(--acc)}
+.sel-count{margin-left:auto}
+/* Hauteur FIXE : changer d'outil ne fait plus bouger ni redimensionner la zone de dessin (le surplus défile). */
+.settings{height:calc(2 * var(--touch) + 24px);overflow-y:auto;align-content:flex-start}
+.settings.opts-only>:not(.tool-options){display:none}
